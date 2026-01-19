@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Poker Web-App</title>
+    <style>
+        :root {
+            --poker-green: #2e7d32;
+            --card-white: #ffffff;
+            --card-back: #b71c1c;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .game-container {
+            background-color: var(--poker-green);
+            padding: 2rem;
+            border-radius: 20px;
+            border: 8px solid #5d4037;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 800px;
+            width: 90%;
+        }
+
+        h1 { margin-top: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+
+        .hand {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            perspective: 1000px;
+        }
+
+        .card {
+            width: 100px;
+            height: 140px;
+            background: var(--card-white);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: black;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            user-select: none;
+            position: relative;
+            border: 2px solid #ccc;
+        }
+
+        .card.selected {
+            transform: translateY(-20px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            border-color: #ffeb3b;
+        }
+
+        .card.red { color: #d32f2f; }
+
+        .controls { margin-top: 20px; }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #ffeb3b;
+            border: none;
+            border-radius: 5px;
+            color: #333;
+            transition: background 0.2s;
+        }
+
+        button:hover { background-color: #fdd835; }
+        button:disabled { background-color: #9e9e9e; cursor: not-allowed; }
+
+        .message {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            min-height: 1.5em;
+            font-weight: bold;
+        }
+
+        .status { margin-bottom: 10px; font-style: italic; opacity: 0.8; }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <h1>Five-Card Draw</h1>
+    <div class="status" id="status">Trykk "Del ut" for å starte</div>
+    
+    <div class="hand" id="hand">
+        <div class="card">?</div>
+        <div class="card">?</div>
+        <div class="card">?</div>
+        <div class="card">?</div>
+        <div class="card">?</div>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <div class="controls">
+        <button id="actionBtn" onclick="handleAction()">Del ut</button>
+        <button id="resetBtn" onclick="initGame()" style="display:none; background:#ff5722; color:white;">Spill igjen</button>
+    </div>
+</div>
+
+<script>
+    const suits = ['♠', '♣', '♥', '♦'];
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    let deck = [];
+    let playerHand = [];
+    let gameState = 'START'; // START, DRAW, END
+
+    const handEl = document.getElementById('hand');
+    const msgEl = document.getElementById('message');
+    const statusEl = document.getElementById('status');
+    const actionBtn = document.getElementById('actionBtn');
+
+    function createDeck() {
+        deck = [];
+        for (let s of suits) {
+            for (let v of values) {
+                deck.push({ suit: s, value: v, 
+                    color: (s === '♥' || s === '♦') ? 'red' : 'black',
+                    rank: values.indexOf(v) + 2
+                });
+            }
+        }
+        deck.sort(() => Math.random() - 0.5);
+    }
+
+    function renderHand() {
+        handEl.innerHTML = '';
+        playerHand.forEach((card, index) => {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = `card ${card.color} ${card.selected ? 'selected' : ''}`;
+            cardDiv.innerHTML = `<div>${card.value}</div><div>${card.suit}</div>`;
+            
+            if (gameState === 'DRAW') {
+                cardDiv.onclick = () => toggleCardSelection(index);
+            }
+            handEl.appendChild(cardDiv);
+        });
+    }
+
+    function toggleCardSelection(index) {
+        playerHand[index].selected = !playerHand[index].selected;
+        renderHand();
+    }
+
+    function handleAction() {
+        if (gameState === 'START') {
+            createDeck();
+            playerHand = deck.splice(0, 5).map(c => ({...c, selected: false}));
+            gameState = 'DRAW';
+            actionBtn.innerText = 'Bytt valgte kort';
+            statusEl.innerText = 'Velg kortene du vil beholde (klikk for å løfte)';
+            msgEl.innerText = '';
+            renderHand();
+        } 
+        else if (gameState === 'DRAW') {
+            // Bytt ut kortene som IKKE er valgt (løftet)
+            // Merk: I denne logikken velger brukeren hvilke kort som skal BLI. 
+            // Men tradisjonelt velger man hvem som skal bort. 
+            // La oss endre logikken: Valgte kort byttes ut.
+            playerHand = playerHand.map(card => {
+                if (card.selected) {
+                    return {...deck.pop(), selected: false};
+                }
+                return card;
+            });
+            
+            gameState = 'END';
+            actionBtn.disabled = true;
+            actionBtn.style.display = 'none';
+            document.getElementById('resetBtn').style.display = 'inline-block';
+            evaluateHand();
+            renderHand();
+        }
+    }
+
+    function evaluateHand() {
+        const ranks = playerHand.map(c => c.rank).sort((a, b) => a - b);
+        const suitsCount = playerHand.map(c => c.suit);
+        
+        const counts = {};
+        ranks.forEach(r => counts[r] = (counts[r] || 0) + 1);
+        const freq = Object.values(counts).sort((a, b) => b - a);
+
+        const isFlush = new Set(suitsCount).size === 1;
+        const isStraight = ranks.every((r, i) => i === 0 || r === ranks[i-1] + 1);
+
+        let result = "Høyeste kort";
+        if (isFlush && isStraight) result = "Straight Flush!";
+        else if (freq[0] === 4) result = "Fire like!";
+        else if (freq[0] === 3 && freq[1] === 2) result = "Fullt hus!";
+        else if (isFlush) result = "Flush";
+        else if (isStraight) result = "Straight";
+        else if (freq[0] === 3) result = "Tre like";
+        else if (freq[0] === 2 && freq[1] === 2) result = "To par";
+        else if (freq[0] === 2) result = "Ett par";
+
+        msgEl.innerText = result;
+        statusEl.innerText = "Spillet er slutt.";
+    }
+
+    function initGame() {
+        gameState = 'START';
+        actionBtn.disabled = false;
+        actionBtn.style.display = 'inline-block';
+        actionBtn.innerText = 'Del ut';
+        document.getElementById('resetBtn').style.display = 'none';
+        msgEl.innerText = '';
+        statusEl.innerText = 'Trykk "Del ut" for å starte';
+        handEl.innerHTML = '<div class="card">?</div>'.repeat(5);
+    }
+</script>
+
+</body>
+</html>
